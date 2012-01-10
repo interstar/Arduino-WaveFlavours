@@ -5,32 +5,26 @@
 
 #include "WaveFlavours.h"
 
-#define SAMPLE_RATE 8000
-#define TABLE_LEN 256
 
 int speakerPin = 11;
 int pitchPin = 0;
 int modPin = 1;
 
 int tempo = 100;
-int pitchRead, pitch;
+int pitchRead, oldPitchRead, pitch;
 float freq;
 
 int wave1[TABLE_LEN];
 int wave2[TABLE_LEN];
 
-PhaseCounter play, phaser, swapTimer, swapCounter, revTimer, revCounter;
+PhaseCounter swapTimer, swapCounter, revTimer, revCounter;
+Voice v1,v2,v3;
 
 // This is called at 8000 Hz to load the next sample. (Like audioRequested in openFrameworks)
 // Thanks to http://www.arduino.cc/playground/Code/PCMAudio for details of how to do this interupt 
 ISR(TIMER1_COMPA_vect) {
-  int c = play.next();
-  int oset = phaser.next();
- 
-  int x = wave1[c];
-  int xp = wave1[(c+oset)%255];
-  OCR2A = (x+xp)/2;
-
+  int v = v1.next(wave1) + v2.next(wave1) + v3.next(wave1);
+  OCR2A = v/3;
 }
 
 void fillWaves() {
@@ -48,10 +42,10 @@ void setup() {
   fillWaves();  
   Serial.begin(9600);       
   
-  
-  play.start(1,255);
-  phaser.start(0.001,10101);
-  swapTimer.start(0.001,1000);
+  v1.start();  
+  v2.start();
+  v3.start();
+  swapTimer.start(0.01,1000);
   swapCounter.start(1,255);    
   revTimer.start(0,10000);
   revCounter.start(1,255);
@@ -100,30 +94,17 @@ void setup() {
   
 }
 
-float midiToFreq(int midi_note) {
-    // from https://gist.github.com/718095
-    static const double half_step = 1.0594630943592953;  
-    static const double midi_c0 = 8.175798915643707;
-    
-    return midi_c0 * pow(half_step, midi_note);
-}
-
-float calculatePitch(int n) {
-    float freq = midiToFreq(n);
-    float x = SAMPLE_RATE/freq;
-    return TABLE_LEN/x;
-}
 
 void loop() {
     int c,x;
     pitchRead = analogRead(pitchPin);
-    pitch = map(analogRead(pitchPin),0,1023,30,100);
-    play.dx = calculatePitch(pitch);
-    Serial.print(pitchRead);
-    Serial.print(", ");
-    Serial.print(pitch);
-    Serial.print(", ");
-    Serial.println(play.dx);
+    if (pitchRead != oldPitchRead) {
+      pitch = map(pitchRead,0,1023,30,100);
+      v1.setPitch(pitch);
+      v2.setPitch(pitch+5);
+      v3.setPitch(pitch+12);
+      oldPitchRead = pitchRead;
+    }
     
     float p1 =(analogRead(1))*0.1;
     revTimer.dx = p1;
