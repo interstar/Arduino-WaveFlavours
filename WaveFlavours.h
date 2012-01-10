@@ -1,6 +1,7 @@
 #define SAMPLE_RATE 8000
 #define TABLE_LEN 256
 
+
 class PhaseCounter {
     public :
         float x, oldX, dx, max;
@@ -13,8 +14,12 @@ class PhaseCounter {
 class Voice {
    public :
        PhaseCounter play, phaser;
-       void start();
+       float* freqMap;
+       
+       void start(float fm[]);
        int next(int wave1[]);
+       int phaserNext();
        void setPhaserSpeed(float speed);
        void setPitch(int note);
+       void fillMap();
 };

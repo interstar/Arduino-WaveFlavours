@@ -7,6 +7,8 @@
 
 
 int speakerPin = 11;
+int buttonPin = 12;
+
 int pitchPin = 0;
 int modPin = 1;
 
@@ -17,14 +19,26 @@ float freq;
 int wave1[TABLE_LEN];
 int wave2[TABLE_LEN];
 
+float freqMap[70];
+
+boolean poly;
+int debounce;
+
 PhaseCounter swapTimer, swapCounter, revTimer, revCounter;
 Voice v1,v2,v3;
 
 // This is called at 8000 Hz to load the next sample. (Like audioRequested in openFrameworks)
 // Thanks to http://www.arduino.cc/playground/Code/PCMAudio for details of how to do this interupt 
 ISR(TIMER1_COMPA_vect) {
-  int v = v1.next(wave1) + v2.next(wave1) + v3.next(wave1);
-  OCR2A = v/3;
+  static int v;
+  if (poly) {
+    v = v1.next(wave1) + v2.next(wave1) + v3.next(wave1);
+    v = v/3;
+  } 
+  else {
+    v = v1.next(wave1);
+  }
+  OCR2A = v;
 }
 
 void fillWaves() {
@@ -37,22 +51,31 @@ void fillWaves() {
   }
 }
 
+
 void setup() {
   pinMode(speakerPin,OUTPUT);
+  pinMode(buttonPin,INPUT);
   fillWaves();  
   Serial.begin(9600);       
-  
-  v1.start();  
-  v2.start();
-  v3.start();
+
+  poly = false;  // set to true for 3 voice chord
+  v1.start(freqMap);  
+  v1.fillMap();
+  v2.start(freqMap); // even if voices 2 & 3 aren't used, we set them up anyway
+  v3.start(freqMap);
+
   swapTimer.start(0.01,1000);
   swapCounter.start(1,255);    
   revTimer.start(0,10000);
   revCounter.start(1,255);
 
+  debounce = 0;
+
+
+
   // Set up the interupt  
   // Set up Timer 2 to do pulse width modulation on the speaker pin.
-  
+
   // Use internal clock (datasheet p.160)
   ASSR &= ~(_BV(EXCLK) | _BV(AS2));
 
@@ -91,39 +114,55 @@ void setup() {
   TIMSK1 |= _BV(OCIE1A);
 
   sei(); 
-  
+
 }
 
 
 void loop() {
-    int c,x;
-    pitchRead = analogRead(pitchPin);
-    if (pitchRead != oldPitchRead) {
-      pitch = map(pitchRead,0,1023,30,100);
-      v1.setPitch(pitch);
-      v2.setPitch(pitch+5);
-      v3.setPitch(pitch+12);
-      oldPitchRead = pitchRead;
-    }
-    
-    float p1 =(analogRead(1))*0.1;
-    revTimer.dx = p1;
+  int c,x;
+  pitchRead = analogRead(pitchPin);
+  if (pitchRead != oldPitchRead) {
+    pitch = map(pitchRead,0,1023,30,100);
+    //Serial.println(pitch);
 
-    revTimer.next();
-    if (revTimer.wrapped()) {
-      c = revCounter.next();
-      x = wave1[c];
-      wave1[c] = wave1[255-c];
-      wave1[255-c]=x;
+    v1.setPitch(pitch);
+    v2.setPitch(pitch+5);
+    v3.setPitch(pitch+12);
+    oldPitchRead = pitchRead;
+  }
+
+  v1.phaserNext();
+  v2.phaserNext();
+  v3.phaserNext();
+
+  float p1 =(analogRead(1))*0.1;
+  revTimer.dx = p1;
+
+  revTimer.next();
+  if (revTimer.wrapped()) {
+    c = revCounter.next();
+    x = wave1[c];
+    wave1[c] = wave1[255-c];
+    wave1[255-c]=x;
+  }
+
+  swapTimer.next();
+  if (swapTimer.wrapped()) { 
+    c = swapCounter.next();
+    x = wave2[c];
+    wave2[c]=wave1[c];
+    wave1[c]=x;
+  }  
+
+  if (debounce<=0) {
+    if (digitalRead(buttonPin)==HIGH) {
+      poly = !poly;
+      debounce = 100;
+      Serial.println("button");
     }
-    
-    swapTimer.next();
-    if (swapTimer.wrapped()) { 
-      c = swapCounter.next();
-      x = wave2[c];
-      wave2[c]=wave1[c];
-      wave1[c]=x;
-    }  
-    
-    
+  } else {
+    debounce--;
+  }  
+
 }
+

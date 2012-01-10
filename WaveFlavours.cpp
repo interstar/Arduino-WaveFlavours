@@ -2,6 +2,21 @@
 
 #include "WaveFlavours.h"
 
+float midiToFreq(int midi_note) {
+    // from https://gist.github.com/718095
+    static const double half_step = 1.0594630943592953;  
+    static const double midi_c0 = 8.175798915643707;
+    
+    return midi_c0 * pow(half_step, midi_note);
+}
+
+float calculatePitch(int n) {
+    float freq = midiToFreq(n);
+    float x = SAMPLE_RATE/freq;
+    return TABLE_LEN/x;
+}
+
+
 // __PhaseCounter__________________________________________________________________________
 //
 void PhaseCounter::start(float d, float m) {
@@ -30,17 +45,20 @@ int PhaseCounter::next() {
     return (int)x;
 }
 
-void Voice::start() {
-    play.start(0,255);
+void Voice::start(float* fm) {
+    play.start(0,256);
     phaser.start(0.001,10101);
+    freqMap = fm;  
 }
 
 int Voice::next(int wave1[]) {
     int c = play.next();
-    int oset = phaser.next();
+    int oset = (int)phaser.x;
  
     int x = wave1[c];
-    int xp = wave1[(c+oset)%255];
+    int y = c+oset;
+    while (y > 255) { y = y - 255; }
+    int xp = wave1[y];
     return (x+xp)/2;
 }
 
@@ -49,20 +67,17 @@ void Voice::setPhaserSpeed(float d) {
     phaser.dx = d;
 }
 
-float midiToFreq(int midi_note) {
-    // from https://gist.github.com/718095
-    static const double half_step = 1.0594630943592953;  
-    static const double midi_c0 = 8.175798915643707;
-    
-    return midi_c0 * pow(half_step, midi_note);
-}
-
-float calculatePitch(int n) {
-    float freq = midiToFreq(n);
-    float x = SAMPLE_RATE/freq;
-    return TABLE_LEN/x;
+void Voice::phaserNext() {
+    phaser.next();
 }
 
 void Voice::setPitch(int note) {
-    play.dx = calculatePitch(note);
+    play.dx = freqMap[note-30];
 }
+
+void Voice::fillMap() {
+  for (int i=0;i<70;i++) {
+    freqMap[i] = calculatePitch(i+30);
+  }
+}
+
