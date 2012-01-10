@@ -6,11 +6,11 @@
 #include "WaveFlavours.h"
 
 
-int speakerPin = 11;
-int buttonPin = 12;
+int speakerPin = 11; // audio output pin
+int buttonPin = 12; // digital input button, switch between mono and poly / chord 
 
-int pitchPin = 0;
-int modPin = 1;
+int pitchPin = 0; // analog input for the pitch
+int revPin = 1; // affects reverse speed
 
 int tempo = 100;
 int pitchRead, oldPitchRead, pitch;
@@ -64,7 +64,7 @@ void setup() {
   v2.start(freqMap); // even if voices 2 & 3 aren't used, we set them up anyway
   v3.start(freqMap);
 
-  swapTimer.start(0.01,1000);
+  swapTimer.start(0.001,1000);
   swapCounter.start(1,255);    
   revTimer.start(0,10000);
   revCounter.start(1,255);
@@ -131,11 +131,22 @@ void loop() {
     oldPitchRead = pitchRead;
   }
 
-  v1.phaserNext();
-  v2.phaserNext();
-  v3.phaserNext();
+  if (debounce<=0) {
+    if (digitalRead(buttonPin)==HIGH) {
+      poly = !poly;
+      debounce = 100;
+      Serial.println("button");
+    }
+  } else {
+    debounce--;
+  }  
 
-  float p1 =(analogRead(1))*0.1;
+
+  v1.phaser.next();
+  v2.phaser.next();
+  v3.phaser.next();
+
+  int p1 =(analogRead(revPin))/10;
   revTimer.dx = p1;
 
   revTimer.next();
@@ -154,15 +165,6 @@ void loop() {
     wave1[c]=x;
   }  
 
-  if (debounce<=0) {
-    if (digitalRead(buttonPin)==HIGH) {
-      poly = !poly;
-      debounce = 100;
-      Serial.println("button");
-    }
-  } else {
-    debounce--;
-  }  
 
 }
 

@@ -47,7 +47,7 @@ int PhaseCounter::next() {
 
 void Voice::start(float* fm) {
     play.start(0,256);
-    phaser.start(0.001,10101);
+    phaser.start(0.1,10101);
     freqMap = fm;  
 }
 
@@ -65,10 +65,6 @@ int Voice::next(int wave1[]) {
 
 void Voice::setPhaserSpeed(float d) {
     phaser.dx = d;
-}
-
-void Voice::phaserNext() {
-    phaser.next();
 }
 
 void Voice::setPitch(int note) {

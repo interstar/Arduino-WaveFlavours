@@ -18,7 +18,6 @@ class Voice {
        
        void start(float fm[]);
        int next(int wave1[]);
-       int phaserNext();
        void setPhaserSpeed(float speed);
        void setPitch(int note);
        void fillMap();
